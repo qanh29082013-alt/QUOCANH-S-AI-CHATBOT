@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>QuocAnh's Chatbot</title>
+
+<style>
+:root {
+  --bg: #ffffff;
+  --panel: #f3f4f6;
+  --text: #111;
+  --bot: #e5e7eb;
+  --user: #2563eb;
+}
+.dark {
+  --bg: #0f172a;
+  --panel: #020617;
+  --text: #e5e7eb;
+  --bot: #1e293b;
+}
+* { box-sizing: border-box; font-family: Segoe UI, Arial; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+.app {
+  width: 420px;
+  height: 650px;
+  background: var(--panel);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(0,0,0,.3);
+}
+.header {
+  padding: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+}
+.header button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+}
+.chat {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+}
+.msg { margin-bottom: 12px; max-width: 85%; }
+.user {
+  margin-left: auto;
+  background: var(--user);
+  color: #fff;
+  padding: 10px;
+  border-radius: 12px;
+}
+.bot {
+  background: var(--bot);
+  padding: 10px;
+  border-radius: 12px;
+}
+.bot ul { padding-left: 18px; }
+.bot li { margin-bottom: 6px; }
+.input {
+  display: flex;
+  border-top: 1px solid #ccc;
+}
+input {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+}
+button.send {
+  padding: 12px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+}
+.api {
+  padding: 8px;
+  font-size: 12px;
+  border-top: 1px dashed #999;
+}
+</style>
+</head>
+
+<body>
+<div class="app" id="app">
+  <div class="header">
+    🤖 QuocAnh's Chatbot
+    <button onclick="toggleTheme()">🌙/☀️</button>
+  </div>
+
+  <div class="chat" id="chat"></div>
+
+  <div class="input">
+    <input id="text" placeholder="Nhập câu hỏi..." />
+    <button class="send" onclick="send()">Gửi</button>
+  </div>
+
+  <div class="api">
+    API Key:
+    <input id="key" placeholder="Dán API key Gemini vào đây" style="width:100%">
+  </div>
+</div>
+
+<script>
+const chat = document.getElementById("chat");
+const input = document.getElementById("text");
+const keyInput = document.getElementById("key");
+
+keyInput.value = localStorage.getItem("API_KEY") || "";
+chat.innerHTML = localStorage.getItem("CHAT") || welcome();
+
+function welcome() {
+  return `<div class="msg bot">
+    <ul>
+      <li>→ Xin chào 👋</li>
+      <li>→ Tôi là QuocAnh's Chatbot</li>
+      <li>→ Dán API key để bắt đầu</li>
+    </ul>
+  </div>`;
+}
+
+function toggleTheme() {
+  document.getElementById("app").classList.toggle("dark");
+}
+
+function addUser(text) {
+  chat.innerHTML += `<div class="msg user">${text}</div>`;
+}
+
+function addBot(text) {
+  const bullets = text.split("\n").map(l => `<li>→ ${l}</li>`).join("");
+  chat.innerHTML += `<div class="msg bot"><ul>${bullets}</ul></div>`;
+}
+
+async function send() {
+  if (!input.value.trim()) return;
+  if (!keyInput.value.trim()) return alert("Chưa có API key");
+
+  localStorage.setItem("API_KEY", keyInput.value);
+
+  const msg = input.value;
+  addUser(msg);
+  input.value = "";
+  addBot("Đang suy nghĩ...");
+
+  chat.scrollTop = chat.scrollHeight;
+
+  try {
+    const res = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=" + keyInput.value,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: msg }] }]
+        })
+      }
+    );
+    const data = await res.json();
+    chat.lastChild.remove();
+
+    const text =
+      data.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Không có phản hồi.";
+
+    addBot(text);
+    localStorage.setItem("CHAT", chat.innerHTML);
+    chat.scrollTop = chat.scrollHeight;
+  } catch (e) {
+    chat.lastChild.remove();
+    addBot("❌ Lỗi kết nối API");
+  }
+}
+</script>
+</body>
+</html>
